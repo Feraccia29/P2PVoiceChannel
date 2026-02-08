@@ -5,14 +5,36 @@ class AppConstants {
     defaultValue: 'http://localhost:3000',
   );
 
+  // TURN server (configurabile via app_config.json)
+  static const String turnServerUrl = String.fromEnvironment(
+    'TURN_SERVER_URL',
+    defaultValue: 'turn:localhost:3478',
+  );
+  static const String turnUsername = String.fromEnvironment(
+    'TURN_USERNAME',
+    defaultValue: 'voipuser',
+  );
+  static const String turnPassword = String.fromEnvironment(
+    'TURN_PASSWORD',
+    defaultValue: 'voippass123',
+  );
+
   // Room ID fisso per semplicità
   static const String defaultRoomId = 'gaming-voice-channel';
 
-  // Configurazione ICE servers
-  static const Map<String, dynamic> iceServers = {
+  // Configurazione ICE servers (STUN + TURN)
+  static Map<String, dynamic> get iceServers => {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
       {'urls': 'stun:stun1.l.google.com:19302'},
+      {
+        'urls': [
+          turnServerUrl,
+          '$turnServerUrl?transport=tcp',
+        ],
+        'username': turnUsername,
+        'credential': turnPassword,
+      },
     ]
   };
 
