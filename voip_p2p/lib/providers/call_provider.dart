@@ -14,6 +14,14 @@ class CallProvider with ChangeNotifier {
   String? _localPeerId;
   String? _remotePeerId;
 
+  // Buffering ICE candidates ricevuti prima della remote description
+  final List<RTCIceCandidate> _pendingIceCandidates = [];
+  bool _remoteDescriptionSet = false;
+
+  // ICE restart
+  int _iceRestartAttempts = 0;
+  static const int _maxIceRestartAttempts = 3;
+
   CallStateModel get callState => _callState;
   bool get isConnected => _callState.state == CallState.connected;
   bool get isConnecting => _callState.state == CallState.connecting;
@@ -64,6 +72,7 @@ class CallProvider with ChangeNotifier {
     }
 
     _remotePeerId = peerId;
+    _resetIceState();
 
     try {
       final offer = await _webrtcService.createOffer();
@@ -78,10 +87,17 @@ class CallProvider with ChangeNotifier {
     }
   }
 
-  void _handlePeerLeft(String peerId) {
+  void _handlePeerLeft(String peerId) async {
     if (_remotePeerId == peerId) {
       print('Remote peer disconnected');
       _remotePeerId = null;
+      _resetIceState();
+
+      // Cleanup e reinizializza il peer connection
+      await _webrtcService.dispose();
+      await _webrtcService.initialize();
+      await _webrtcService.startLocalStream();
+
       _updateState(CallState.connecting);
     }
   }
@@ -90,6 +106,7 @@ class CallProvider with ChangeNotifier {
     try {
       final remotePeerId = data['from'] as String;
       _remotePeerId = remotePeerId;
+      _resetIceState();
 
       final offer = RTCSessionDescription(
         data['offer']['sdp'],
@@ -97,6 +114,10 @@ class CallProvider with ChangeNotifier {
       );
 
       await _webrtcService.setRemoteDescription(offer);
+      _remoteDescriptionSet = true;
+
+      // Applica candidati bufferizzati
+      await _flushPendingIceCandidates();
 
       final answer = await _webrtcService.createAnswer();
       _signalingService.sendAnswer(remotePeerId, {
@@ -119,6 +140,11 @@ class CallProvider with ChangeNotifier {
       );
 
       await _webrtcService.setRemoteDescription(answer);
+      _remoteDescriptionSet = true;
+
+      // Applica candidati bufferizzati
+      await _flushPendingIceCandidates();
+
       print('Answer received and applied');
     } catch (e) {
       print('Error handling answer: $e');
@@ -134,10 +160,29 @@ class CallProvider with ChangeNotifier {
         data['candidate']['sdpMLineIndex'],
       );
 
-      await _webrtcService.addIceCandidate(candidate);
+      if (_remoteDescriptionSet) {
+        await _webrtcService.addIceCandidate(candidate);
+      } else {
+        print('Buffering ICE candidate (remote description not set yet)');
+        _pendingIceCandidates.add(candidate);
+      }
     } catch (e) {
       print('Error adding ICE candidate: $e');
     }
+  }
+
+  Future<void> _flushPendingIceCandidates() async {
+    if (_pendingIceCandidates.isEmpty) return;
+
+    print('Flushing ${_pendingIceCandidates.length} buffered ICE candidates');
+    for (final candidate in _pendingIceCandidates) {
+      try {
+        await _webrtcService.addIceCandidate(candidate);
+      } catch (e) {
+        print('Error adding buffered ICE candidate: $e');
+      }
+    }
+    _pendingIceCandidates.clear();
   }
 
   void _handleLocalIceCandidate(RTCIceCandidate candidate) {
@@ -157,13 +202,53 @@ class CallProvider with ChangeNotifier {
 
   void _handleConnectionStateChange(RTCPeerConnectionState state) {
     if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+      _iceRestartAttempts = 0;
       _updateState(CallState.connected);
-    } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-        state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+    } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+      _attemptIceRestart();
+    } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
       if (_callState.state == CallState.connected) {
         _updateState(CallState.connecting);
+        // Attendi un po' prima di tentare ICE restart (potrebbe riprendersi da solo)
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_callState.state == CallState.connecting && _remotePeerId != null) {
+            _attemptIceRestart();
+          }
+        });
       }
     }
+  }
+
+  Future<void> _attemptIceRestart() async {
+    if (_remotePeerId == null) return;
+
+    if (_iceRestartAttempts >= _maxIceRestartAttempts) {
+      print('Max ICE restart attempts reached');
+      _updateState(CallState.error, errorMessage: 'Connection failed after $_maxIceRestartAttempts retries');
+      return;
+    }
+
+    _iceRestartAttempts++;
+    _updateState(CallState.connecting);
+    print('Attempting ICE restart (attempt $_iceRestartAttempts/$_maxIceRestartAttempts)');
+
+    try {
+      final offer = await _webrtcService.createOfferWithIceRestart();
+      _signalingService.sendOffer(_remotePeerId!, {
+        'sdp': offer.sdp,
+        'type': offer.type,
+      });
+      _remoteDescriptionSet = false;
+      _pendingIceCandidates.clear();
+    } catch (e) {
+      print('Error during ICE restart: $e');
+    }
+  }
+
+  void _resetIceState() {
+    _remoteDescriptionSet = false;
+    _pendingIceCandidates.clear();
+    _iceRestartAttempts = 0;
   }
 
   void toggleMute() {
@@ -177,6 +262,7 @@ class CallProvider with ChangeNotifier {
     _webrtcService.dispose();
     _signalingService.disconnect();
     _remotePeerId = null;
+    _resetIceState();
     _updateState(CallState.idle);
   }
 

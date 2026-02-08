@@ -14,9 +14,16 @@ class WebRTCService {
 
   RTCPeerConnectionState? get connectionState => _peerConnection?.connectionState;
 
+  bool get hasRemoteDescription => _peerConnection?.getRemoteDescription() != null;
+
   Future<void> initialize() async {
+    final config = {
+      ...AppConstants.iceServers,
+      'iceTransportPolicy': 'all',
+    };
+
     _peerConnection = await createPeerConnection(
-      AppConstants.iceServers,
+      config,
       {
         'optional': [
           {'DtlsSrtpKeyAgreement': true},
@@ -102,6 +109,20 @@ class WebRTCService {
 
   Future<void> addIceCandidate(RTCIceCandidate candidate) async {
     await _peerConnection!.addCandidate(candidate);
+  }
+
+  Future<RTCSessionDescription> createOfferWithIceRestart() async {
+    final offer = await _peerConnection!.createOffer({
+      'offerToReceiveAudio': true,
+      'offerToReceiveVideo': false,
+      'iceRestart': true,
+    });
+
+    final modifiedSdp = _modifySdpForOpus(offer.sdp!);
+    final modifiedOffer = RTCSessionDescription(modifiedSdp, offer.type);
+
+    await _peerConnection!.setLocalDescription(modifiedOffer);
+    return modifiedOffer;
   }
 
   void toggleMute() {
