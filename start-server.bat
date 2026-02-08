@@ -5,7 +5,7 @@ echo Launching Podman Compose and NPM Server in separate terminals...
 echo.
 
 REM Launch Podman Compose in new terminal
-start "Podman - P2P VoIP" cmd /k "cd /d %~dp0server && podman compose up -d"
+start "Podman - P2P VoIP" cmd /k "cd /d %~dp0server && podman compose up"
 
 REM Wait a moment for Podman to start
 timeout /t 2 /nobreak >nul
