@@ -13,6 +13,4 @@ services:
       - "16450-16500:16450-16500/udp"
     volumes:
       - ./turnserver.conf:/etc/coturn/turnserver.conf
-    environment:
-      - DETECT_EXTERNAL_IP=no
     restart: unless-stopped
