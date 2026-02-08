@@ -1,6 +1,6 @@
 const { Server } = require('socket.io');
-
-const io = new Server(3000, {
+const port = 16429;
+const io = new Server(port, {
   cors: {
     origin: '*',
   },
@@ -78,4 +78,4 @@ io.on('connection', (socket) => {
   });
 });
 
-console.log('Signaling server listening on port 3000');
+console.log(`Signaling server listening on port ${port}`);
