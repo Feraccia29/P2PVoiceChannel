@@ -13,8 +13,7 @@ class WebRTCService {
   Function(RTCPeerConnectionState)? onConnectionStateChange;
 
   RTCPeerConnectionState? get connectionState => _peerConnection?.connectionState;
-
-  bool get hasRemoteDescription => _peerConnection?.getRemoteDescription() != null;
+  RTCSignalingState? get signalingState => _peerConnection?.signalingState;
 
   Future<void> initialize() async {
     final config = {
@@ -46,7 +45,16 @@ class WebRTCService {
     };
 
     _peerConnection!.onIceCandidate = (candidate) {
-      print('Local ICE candidate generated');
+      final candidateStr = candidate.candidate ?? '';
+      String type = 'unknown';
+      if (candidateStr.contains('typ relay')) {
+        type = 'relay (TURN)';
+      } else if (candidateStr.contains('typ srflx')) {
+        type = 'srflx (STUN)';
+      } else if (candidateStr.contains('typ host')) {
+        type = 'host (local)';
+      }
+      print('ICE candidate: $type - $candidateStr');
       onIceCandidate?.call(candidate);
     };
 

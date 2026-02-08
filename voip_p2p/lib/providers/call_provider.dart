@@ -18,9 +18,10 @@ class CallProvider with ChangeNotifier {
   final List<RTCIceCandidate> _pendingIceCandidates = [];
   bool _remoteDescriptionSet = false;
 
-  // ICE restart
+  // ICE restart (solo l'offerer lo fa)
   int _iceRestartAttempts = 0;
   static const int _maxIceRestartAttempts = 3;
+  bool _isOfferer = false;
 
   CallStateModel get callState => _callState;
   bool get isConnected => _callState.state == CallState.connected;
@@ -72,6 +73,7 @@ class CallProvider with ChangeNotifier {
     }
 
     _remotePeerId = peerId;
+    _isOfferer = true;
     _resetIceState();
 
     try {
@@ -91,6 +93,7 @@ class CallProvider with ChangeNotifier {
     if (_remotePeerId == peerId) {
       print('Remote peer disconnected');
       _remotePeerId = null;
+      _isOfferer = false;
       _resetIceState();
 
       // Cleanup e reinizializza il peer connection
@@ -105,8 +108,26 @@ class CallProvider with ChangeNotifier {
   Future<void> _handleOfferReceived(Map<String, dynamic> data) async {
     try {
       final remotePeerId = data['from'] as String;
+      final signalingState = _webrtcService.signalingState;
+
+      // Gestione glare: abbiamo già inviato una offer
+      if (signalingState == RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        // Tiebreaker: il peer con ID "minore" vince come offerer
+        if (_localPeerId!.compareTo(remotePeerId) < 0) {
+          print('Glare detected: we win tiebreak, ignoring remote offer');
+          return;
+        }
+        // Noi perdiamo: accettiamo l'offer remota (rollback implicito)
+        print('Glare detected: we lose tiebreak, accepting remote offer');
+        _isOfferer = false;
+      }
+
       _remotePeerId = remotePeerId;
-      _resetIceState();
+      if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        _isOfferer = false;
+      }
+      _remoteDescriptionSet = false;
+      _pendingIceCandidates.clear();
 
       final offer = RTCSessionDescription(
         data['offer']['sdp'],
@@ -134,6 +155,14 @@ class CallProvider with ChangeNotifier {
 
   Future<void> _handleAnswerReceived(Map<String, dynamic> data) async {
     try {
+      final signalingState = _webrtcService.signalingState;
+
+      // Guard: accettare answer solo se siamo in have-local-offer
+      if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        print('Ignoring stale answer (signaling state: $signalingState)');
+        return;
+      }
+
       final answer = RTCSessionDescription(
         data['answer']['sdp'],
         data['answer']['type'],
@@ -201,26 +230,34 @@ class CallProvider with ChangeNotifier {
   }
 
   void _handleConnectionStateChange(RTCPeerConnectionState state) {
+    print('PeerConnection state: $state (isOfferer: $_isOfferer)');
+
     if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
       _iceRestartAttempts = 0;
       _updateState(CallState.connected);
     } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-      _attemptIceRestart();
+      if (_isOfferer) {
+        _attemptIceRestart();
+      } else {
+        // Answerer aspetta che l'offerer faccia ICE restart
+        _updateState(CallState.connecting);
+      }
     } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
       if (_callState.state == CallState.connected) {
         _updateState(CallState.connecting);
-        // Attendi un po' prima di tentare ICE restart (potrebbe riprendersi da solo)
-        Future.delayed(const Duration(seconds: 3), () {
-          if (_callState.state == CallState.connecting && _remotePeerId != null) {
-            _attemptIceRestart();
-          }
-        });
+        if (_isOfferer) {
+          Future.delayed(const Duration(seconds: 3), () {
+            if (_callState.state == CallState.connecting && _remotePeerId != null) {
+              _attemptIceRestart();
+            }
+          });
+        }
       }
     }
   }
 
   Future<void> _attemptIceRestart() async {
-    if (_remotePeerId == null) return;
+    if (_remotePeerId == null || !_isOfferer) return;
 
     if (_iceRestartAttempts >= _maxIceRestartAttempts) {
       print('Max ICE restart attempts reached');
@@ -233,13 +270,14 @@ class CallProvider with ChangeNotifier {
     print('Attempting ICE restart (attempt $_iceRestartAttempts/$_maxIceRestartAttempts)');
 
     try {
+      _remoteDescriptionSet = false;
+      _pendingIceCandidates.clear();
+
       final offer = await _webrtcService.createOfferWithIceRestart();
       _signalingService.sendOffer(_remotePeerId!, {
         'sdp': offer.sdp,
         'type': offer.type,
       });
-      _remoteDescriptionSet = false;
-      _pendingIceCandidates.clear();
     } catch (e) {
       print('Error during ICE restart: $e');
     }
@@ -262,6 +300,7 @@ class CallProvider with ChangeNotifier {
     _webrtcService.dispose();
     _signalingService.disconnect();
     _remotePeerId = null;
+    _isOfferer = false;
     _resetIceState();
     _updateState(CallState.idle);
   }
