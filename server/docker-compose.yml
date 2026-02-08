@@ -7,7 +7,11 @@ services:
 
   coturn:
     image: coturn/coturn:latest
-    network_mode: host
+    ports:
+      - "16430:16430/udp"
+      - "16430:16430/tcp"
+      - "16450-16500:16450-16500/udp"
     volumes:
-      - ./turnserver.conf:/etc/coturn/turnserver.conf
+      - ./turnserver.conf:/etc/turnserver.conf
+    command: ["-c", "/etc/turnserver.conf"]
     restart: unless-stopped
