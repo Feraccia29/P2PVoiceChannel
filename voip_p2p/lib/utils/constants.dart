@@ -1,6 +1,9 @@
 class AppConstants {
-  // URL signaling server (cambiare con il proprio server)
-  static const String signalingServerUrl = 'http://localhost:3000';
+  // URL signaling server (configurabile via app_config.json)
+  static const String signalingServerUrl = String.fromEnvironment(
+    'SIGNALING_SERVER_URL',
+    defaultValue: 'http://localhost:3000',
+  );
 
   // Room ID fisso per semplicità
   static const String defaultRoomId = 'gaming-voice-channel';

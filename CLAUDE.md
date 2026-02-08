@@ -13,14 +13,14 @@ P2P VoIP application for real-time voice communication, optimized for gaming. Us
 # Get dependencies
 flutter pub get
 
-# Run debug
-flutter run
+# Run debug (with config)
+flutter run --dart-define-from-file=app_config.json
 
 # Build Android APK (release)
-flutter build apk --release
+flutter build apk --release --dart-define-from-file=app_config.json
 
 # Build Windows
-flutter build windows --release
+flutter build windows --release --dart-define-from-file=app_config.json
 
 # Analyze code
 flutter analyze
