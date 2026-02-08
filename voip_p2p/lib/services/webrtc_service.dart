@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../utils/constants.dart';
 
@@ -35,10 +36,14 @@ class WebRTCService {
         print('Remote stream received');
         _remoteStream = event.streams[0];
 
-        // Inizializza renderer per riprodurre audio su web
-        _remoteRenderer = RTCVideoRenderer();
-        await _remoteRenderer!.initialize();
-        _remoteRenderer!.srcObject = _remoteStream;
+        // Solo su web serve il renderer per riprodurre audio
+        // (il browser richiede un elemento <video> anche per stream audio-only).
+        // Su piattaforme native l'audio WebRTC passa dal sistema audio direttamente.
+        if (kIsWeb) {
+          _remoteRenderer = RTCVideoRenderer();
+          await _remoteRenderer!.initialize();
+          _remoteRenderer!.srcObject = _remoteStream;
+        }
 
         onRemoteStream?.call(event.streams[0]);
       }
