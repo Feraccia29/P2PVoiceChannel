@@ -11,7 +11,7 @@
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
 
     <application
-        android:label="voip_p2p"
+        android:label="VoiP2P"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

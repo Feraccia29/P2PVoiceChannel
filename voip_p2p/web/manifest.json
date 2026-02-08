@@ -1,11 +1,11 @@
 {
-    "name": "voip_p2p",
-    "short_name": "voip_p2p",
+    "name": "VoiP2P",
+    "short_name": "VoiP2P",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "P2P VoIP voice communication",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

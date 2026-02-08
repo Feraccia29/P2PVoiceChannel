@@ -5,7 +5,7 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = voip_p2p
+PRODUCT_NAME = VoiP2P
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.voip.voipP2p

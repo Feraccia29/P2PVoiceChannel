@@ -5,7 +5,17 @@
       "Bash(where:*)",
       "Bash(flutter pub get:*)",
       "Bash(flutter analyze:*)",
-      "Bash(flutter doctor:*)"
+      "Bash(flutter doctor:*)",
+      "Bash(python:*)",
+      "Bash(python -c:*)",
+      "Bash(pip install:*)",
+      "Bash(if not exist \"e:\\\\DEV\\\\P2PVoiceChannel\\\\voip_p2p\\\\assets\" mkdir \"e:\\\\DEV\\\\P2PVoiceChannel\\\\voip_p2p\\\\assets\")",
+      "Bash(npx --yes sharp-cli:*)",
+      "Bash(dart run:*)",
+      "Bash(dir:*)",
+      "Bash(flutter clean:*)",
+      "Bash(npx sharp-cli:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }
