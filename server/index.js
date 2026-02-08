@@ -4,6 +4,7 @@ const io = new Server(3000, {
   cors: {
     origin: '*',
   },
+  allowEIO3: true,
 });
 
 const rooms = new Map();
