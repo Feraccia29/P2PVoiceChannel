@@ -96,12 +96,17 @@ class CallProvider with ChangeNotifier {
       _isOfferer = false;
       _resetIceState();
 
-      // Cleanup e reinizializza il peer connection
-      await _webrtcService.dispose();
-      await _webrtcService.initialize();
-      await _webrtcService.startLocalStream();
+      try {
+        // Cleanup e reinizializza il peer connection
+        await _webrtcService.dispose();
+        await _webrtcService.initialize();
+        await _webrtcService.startLocalStream();
 
-      _updateState(CallState.connecting);
+        _updateState(CallState.connecting);
+      } catch (e) {
+        print('Error reinitializing after peer left: $e');
+        _updateState(CallState.error, errorMessage: e.toString());
+      }
     }
   }
 

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../utils/constants.dart';
 
@@ -32,20 +31,25 @@ class WebRTCService {
     );
 
     _peerConnection!.onTrack = (event) async {
-      if (event.streams.isNotEmpty) {
-        print('Remote stream received');
-        _remoteStream = event.streams[0];
+      try {
+        if (event.streams.isNotEmpty) {
+          _remoteStream = event.streams[0];
 
-        // Solo su web serve il renderer per riprodurre audio
-        // (il browser richiede un elemento <video> anche per stream audio-only).
-        // Su piattaforme native l'audio WebRTC passa dal sistema audio direttamente.
-        if (kIsWeb) {
+          final audioTracks = _remoteStream!.getAudioTracks();
+          print('Remote stream received: ${audioTracks.length} audio tracks');
+          for (final track in audioTracks) {
+            print('  Audio track: id=${track.id}, enabled=${track.enabled}, muted=${track.muted}');
+          }
+
           _remoteRenderer = RTCVideoRenderer();
           await _remoteRenderer!.initialize();
           _remoteRenderer!.srcObject = _remoteStream;
-        }
+          print('Renderer initialized and attached to remote stream');
 
-        onRemoteStream?.call(event.streams[0]);
+          onRemoteStream?.call(event.streams[0]);
+        }
+      } catch (e) {
+        print('Error handling remote track: $e');
       }
     };
 
