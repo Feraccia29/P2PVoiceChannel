@@ -2,7 +2,7 @@ services:
   signaling:
     build: .
     ports:
-      - "3000:3000"
+      - "16429:16429"
     restart: unless-stopped
 
   coturn:
