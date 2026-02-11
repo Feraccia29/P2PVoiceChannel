@@ -1,4 +1,52 @@
-signaling-1  | Client connected: 4dSCwv7JAy8bl576AAAB                                                                                                                                                     
-signaling-1  | 43465371-aea0-49de-b308-16a11e97943c joined room gaming-voice-channel (1 peers)
-signaling-1  | Client connected: 7JzuQZB_WCIaTKdPAAAD                                                                                                                                                     
-signaling-1  | e1cb2cac-a59b-4790-be61-67390826d221 joined room gaming-voice-channel (2 peers)
+signaling-1  | Client connected: nH0m6DQ53eMdazRxAAAH
+signaling-1  | TURN credentials sent to 0e62345e-c4de-4a20-8573-0dc8f7c887e0 (expires in 24h)
+signaling-1  | 0e62345e-c4de-4a20-8573-0dc8f7c887e0 joined room gaming-voice-channel (1 peers)                                                                                                            
+signaling-1  | Client connected: RTTpPzcQPGEFSvdRAAAJ                                                                                                                                                     
+signaling-1  | TURN credentials sent to 0873dd7d-e5df-49bd-af8a-f42dd98f281c (expires in 24h)
+signaling-1  | 0873dd7d-e5df-49bd-af8a-f42dd98f281c joined room gaming-voice-channel (2 peers)
+signaling-1  | Offer from 0e62345e-c4de-4a20-8573-0dc8f7c887e0 to 0873dd7d-e5df-49bd-af8a-f42dd98f281c                                                                                                    
+coturn-1     | 862: (26): INFO: IPv4. tcp or tls connected to: 10.89.0.2:38812                                                                                                                            
+coturn-1     | 862: (26): INFO: session 006000000000000001: realm <voip-p2p> user <>: incoming packet message processed, error 401: Unauthorized
+coturn-1     | 862: (26): INFO: IPv4. Local relay addr: 10.89.0.2:16459                                                                                                                                   
+coturn-1     | 862: (26): INFO: session 006000000000000001: new, realm=<voip-p2p>, username=<1770916999:voipuser>, lifetime=600
+coturn-1     | 862: (26): DEBUG: Global turn allocation count incremented, now 1                                                                                                                          
+coturn-1     | 862: (26): INFO: session 006000000000000001: realm <voip-p2p> user <1770916999:voipuser>: incoming packet ALLOCATE processed, success                                                      
+signaling-1  | Answer from 0873dd7d-e5df-49bd-af8a-f42dd98f281c to 0e62345e-c4de-4a20-8573-0dc8f7c887e0
+coturn-1     | 867: (32): INFO: session 012000000000000001: realm <voip-p2p> user <>: incoming packet message processed, error 401: Unauthorized
+coturn-1     | 867: (26): INFO: session 006000000000000001: peer 10.89.0.2 lifetime updated: 300
+coturn-1     | 867: (26): INFO: session 006000000000000001: realm <voip-p2p> user <1770916999:voipuser>: incoming packet CREATE_PERMISSION processed, success
+coturn-1     | 867: (27): INFO: IPv4. tcp or tls connected to: 10.89.0.2:48540                                                                                                                            
+coturn-1     | 867: (27): INFO: session 007000000000000001: realm <voip-p2p> user <>: incoming packet message processed, error 401: Unauthorized                                                          
+coturn-1     | 867: (26): INFO: session 006000000000000001: peer 78.208.118.146 lifetime updated: 300                                                                                                     
+coturn-1     | 867: (26): INFO: session 006000000000000001: realm <voip-p2p> user <1770916999:voipuser>: incoming packet CREATE_PERMISSION processed, success                                             
+coturn-1     | 867: (32): INFO: IPv4. Local relay addr: 10.89.0.2:16477                                                                                                                                   
+coturn-1     | 867: (32): INFO: session 012000000000000001: new, realm=<voip-p2p>, username=<1770917090:voipuser>, lifetime=600
+coturn-1     | 867: (32): DEBUG: Global turn allocation count incremented, now 2                                                                                                                          
+coturn-1     | 867: (32): INFO: session 012000000000000001: realm <voip-p2p> user <1770917090:voipuser>: incoming packet ALLOCATE processed, success
+coturn-1     | 867: (27): INFO: IPv4. Local relay addr: 10.89.0.2:16495                                                                                                                                   
+coturn-1     | 867: (27): INFO: session 007000000000000001: new, realm=<voip-p2p>, username=<1770917090:voipuser>, lifetime=600
+coturn-1     | 867: (27): DEBUG: Global turn allocation count incremented, now 3                                                                                                                          
+coturn-1     | 867: (27): INFO: session 007000000000000001: realm <voip-p2p> user <1770917090:voipuser>: incoming packet ALLOCATE processed, success                                                      
+coturn-1     | 867: (26): INFO: session 006000000000000001: realm <voip-p2p> user <1770916999:voipuser>: incoming packet CREATE_PERMISSION processed, error 403: Forbidden IP                             
+coturn-1     | 867: (26): INFO: session 006000000000000001: realm <voip-p2p> user <1770916999:voipuser>: incoming packet message processed, error 403: Forbidden IP
+coturn-1     | 867: (26): INFO: session 006000000000000001: realm <voip-p2p> user <1770916999:voipuser>: incoming packet CREATE_PERMISSION processed, error 403: Forbidden IP                             
+coturn-1     | 867: (26): INFO: session 006000000000000001: realm <voip-p2p> user <1770916999:voipuser>: incoming packet message processed, error 403: Forbidden IP
+signaling-1  | 0873dd7d-e5df-49bd-af8a-f42dd98f281c left room gaming-voice-channel (1 peers remaining)                                                                                                    
+signaling-1  | Client disconnected: RTTpPzcQPGEFSvdRAAAJ
+coturn-1     | 872: (32): INFO: session 012000000000000001: refreshed, realm=<voip-p2p>, username=<1770917090:voipuser>, lifetime=0                                                                       
+coturn-1     | 872: (32): INFO: session 012000000000000001: realm <voip-p2p> user <1770917090:voipuser>: incoming packet REFRESH processed, success
+coturn-1     | 872: (27): INFO: session 007000000000000001: refreshed, realm=<voip-p2p>, username=<1770917090:voipuser>, lifetime=0                                                                       
+coturn-1     | 872: (27): INFO: session 007000000000000001: realm <voip-p2p> user <1770917090:voipuser>: incoming packet REFRESH processed, success                                                       
+coturn-1     | 872: (27): INFO: session 007000000000000001: TCP socket closed remotely 10.89.0.2:48540                                                                                                    
+coturn-1     | 872: (27): INFO: session 007000000000000001: usage: realm=<voip-p2p>, username=<1770917090:voipuser>, rp=3, rb=244, sp=3, sb=224                                                           
+coturn-1     | 872: (27): INFO: session 007000000000000001: peer usage: realm=<voip-p2p>, username=<1770917090:voipuser>, rp=0, rb=0, sp=0, sb=0
+coturn-1     | 872: (27): INFO: session 007000000000000001: closed (2nd stage), user <1770917090:voipuser> realm <voip-p2p> origin <>, local 0.0.0.0:16430, remote 10.89.0.2:48540, reason: TCP connection closed by client (callback)                                                                                                                                                                              
+coturn-1     | 872: (27): INFO: session 007000000000000001: delete: realm=<voip-p2p>, username=<1770917090:voipuser>
+coturn-1     | 872: (27): DEBUG: Global turn allocation count decremented, now 2                                                                                                                          
+coturn-1     | 873: (32): INFO: session 012000000000000001: usage: realm=<voip-p2p>, username=<1770917090:voipuser>, rp=4, rb=264, sp=4, sb=264                                                           
+coturn-1     | 873: (32): INFO: session 012000000000000001: peer usage: realm=<voip-p2p>, username=<1770917090:voipuser>, rp=0, rb=0, sp=0, sb=0
+coturn-1     | 873: (32): INFO: session 012000000000000001: closed (2nd stage), user <1770917090:voipuser> realm <voip-p2p> origin <>, local 0.0.0.0:16430, remote 10.89.0.2:34815, reason: allocation timeout                                                                                                                                                                                                      
+coturn-1     | 873: (32): INFO: session 012000000000000001: delete: realm=<voip-p2p>, username=<1770917090:voipuser>
+coturn-1     | 873: (32): DEBUG: Global turn allocation count decremented, now 1                                                                                                                          
+signaling-1  | 0e62345e-c4de-4a20-8573-0dc8f7c887e0 left room gaming-voice-channel (0 peers remaining)                                                                                                    
+signaling-1  | Client disconnected: nH0m6DQ53eMdazRxAAAH
