@@ -8,6 +8,7 @@ import '../services/webrtc_service.dart';
 import '../services/permission_service.dart';
 import '../services/foreground_service_manager.dart';
 import '../services/audio_session_manager.dart';
+import '../utils/constants.dart';
 
 class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   final SignalingService _signalingService = SignalingService();
@@ -98,7 +99,9 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
         turnCredential: _turnCredential,
       );
       await _webrtcService.startLocalStream();
-      print('Ready to receive calls');
+      // WebRTC pronto, ora joiniamo la room
+      _signalingService.joinRoom(AppConstants.defaultRoomId);
+      print('WebRTC ready, joined room');
     } catch (e) {
       _updateState(CallState.error, errorMessage: e.toString());
       print('Error initializing WebRTC: $e');
