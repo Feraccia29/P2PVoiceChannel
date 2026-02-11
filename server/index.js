@@ -25,10 +25,11 @@ const socketToPeer = new Map();
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
 
-  // Invia credenziali TURN subito alla connessione (prima del join-room)
-  const turnCreds = generateTurnCredentials();
-  socket.emit('turn-credentials', turnCreds);
-  console.log(`TURN credentials sent to ${socket.id} (expires in 24h)`);
+  socket.on('request-turn-credentials', () => {
+    const turnCreds = generateTurnCredentials();
+    socket.emit('turn-credentials', turnCreds);
+    console.log(`TURN credentials sent to ${socket.id} (expires in 24h)`);
+  });
 
   socket.on('join-room', ({ roomId, peerId }) => {
     socket.join(roomId);

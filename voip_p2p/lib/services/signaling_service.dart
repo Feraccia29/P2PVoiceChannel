@@ -33,6 +33,7 @@ class SignalingService {
 
     _socket!.on('connect', (_) {
       print('Connected to signaling server');
+      _socket!.emit('request-turn-credentials');
       onConnected?.call();
     });
 
@@ -72,6 +73,7 @@ class SignalingService {
 
     _socket!.on('reconnect', (_) {
       print('Socket.io reconnected');
+      _socket!.emit('request-turn-credentials');
       onConnected?.call();
     });
 
