@@ -24,8 +24,9 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   String? _turnCredential;
   bool _webrtcReady = false;
 
-  // Buffering peer-joined ricevuti prima che WebRTC sia pronto
+  // Buffering peer-joined e offer ricevuti prima che WebRTC sia pronto
   String? _pendingPeerJoined;
+  Map<String, dynamic>? _pendingOffer;
 
   // Buffering ICE candidates ricevuti prima della remote description
   final List<RTCIceCandidate> _pendingIceCandidates = [];
@@ -105,8 +106,13 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
       _webrtcReady = true;
       print('WebRTC ready');
 
-      // Se un peer era arrivato prima che WebRTC fosse pronto, gestiscilo ora
-      if (_pendingPeerJoined != null) {
+      // Flush eventi bufferizzati arrivati prima che WebRTC fosse pronto
+      if (_pendingOffer != null) {
+        final offer = _pendingOffer!;
+        _pendingOffer = null;
+        print('Flushing pending offer');
+        _handleOfferReceived(offer);
+      } else if (_pendingPeerJoined != null) {
         final peerId = _pendingPeerJoined!;
         _pendingPeerJoined = null;
         print('Flushing pending peer-joined: $peerId');
@@ -173,6 +179,13 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _handleOfferReceived(Map<String, dynamic> data) async {
+    // Se WebRTC non e' ancora pronto, bufferizza l'offer
+    if (!_webrtcReady) {
+      print('WebRTC not ready yet, buffering offer from ${data['from']}');
+      _pendingOffer = data;
+      return;
+    }
+
     try {
       final remotePeerId = data['from'] as String;
       final signalingState = _webrtcService.signalingState;
@@ -370,6 +383,7 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
     _isOfferer = false;
     _webrtcReady = false;
     _pendingPeerJoined = null;
+    _pendingOffer = null;
     _turnUsername = null;
     _turnCredential = null;
     _resetIceState();
