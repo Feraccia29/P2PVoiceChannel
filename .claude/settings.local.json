@@ -15,7 +15,9 @@
       "Bash(dir:*)",
       "Bash(flutter clean:*)",
       "Bash(npx sharp-cli:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(flutter pub deps:*)",
+      "Bash(openssl rand:*)"
     ]
   }
 }

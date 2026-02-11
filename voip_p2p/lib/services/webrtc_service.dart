@@ -15,9 +15,9 @@ class WebRTCService {
   RTCPeerConnectionState? get connectionState => _peerConnection?.connectionState;
   RTCSignalingState? get signalingState => _peerConnection?.signalingState;
 
-  Future<void> initialize() async {
+  Future<void> initialize({String? turnUsername, String? turnCredential}) async {
     final config = {
-      ...AppConstants.iceServers,
+      ...AppConstants.iceServers(turnUser: turnUsername, turnCred: turnCredential),
       'iceTransportPolicy': 'all',
     };
 

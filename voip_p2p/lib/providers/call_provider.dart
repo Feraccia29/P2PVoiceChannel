@@ -1,18 +1,27 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:uuid/uuid.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/call_state.dart';
 import '../services/signaling_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/permission_service.dart';
+import '../services/foreground_service_manager.dart';
+import '../services/audio_session_manager.dart';
 
-class CallProvider with ChangeNotifier {
+class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   final SignalingService _signalingService = SignalingService();
   final WebRTCService _webrtcService = WebRTCService();
+  final ForegroundServiceManager _foregroundService = ForegroundServiceManager();
+  final AudioSessionManager _audioSessionManager = AudioSessionManager();
 
   CallStateModel _callState = CallStateModel();
   String? _localPeerId;
   String? _remotePeerId;
+
+  // Credenziali TURN temporanee ricevute dal signaling server
+  String? _turnUsername;
+  String? _turnCredential;
 
   // Buffering ICE candidates ricevuti prima della remote description
   final List<RTCIceCandidate> _pendingIceCandidates = [];
@@ -23,6 +32,9 @@ class CallProvider with ChangeNotifier {
   static const int _maxIceRestartAttempts = 3;
   bool _isOfferer = false;
 
+  // Lifecycle tracking
+  bool _wasConnectedBeforePause = false;
+
   CallStateModel get callState => _callState;
   bool get isConnected => _callState.state == CallState.connected;
   bool get isConnecting => _callState.state == CallState.connecting;
@@ -31,6 +43,8 @@ class CallProvider with ChangeNotifier {
   CallProvider() {
     _localPeerId = const Uuid().v4();
     _setupCallbacks();
+    WidgetsBinding.instance.addObserver(this);
+    _foregroundService.initialize();
   }
 
   void _setupCallbacks() {
@@ -39,6 +53,7 @@ class CallProvider with ChangeNotifier {
     _signalingService.onOfferReceived = _handleOfferReceived;
     _signalingService.onAnswerReceived = _handleAnswerReceived;
     _signalingService.onIceCandidateReceived = _handleIceCandidateReceived;
+    _signalingService.onTurnCredentials = _handleTurnCredentials;
 
     _webrtcService.onRemoteStream = _handleRemoteStream;
     _webrtcService.onIceCandidate = _handleLocalIceCandidate;
@@ -54,15 +69,39 @@ class CallProvider with ChangeNotifier {
         throw Exception('Microphone permission denied');
       }
 
-      await _webrtcService.initialize();
-      await _webrtcService.startLocalStream();
+      // Configura audio session PRIMA di WebRTC per impostare il contesto audio corretto
+      await _audioSessionManager.configure();
 
+      // Connetti al signaling server: le credenziali TURN arrivano via callback
+      // e _handleTurnCredentials inizializzera' WebRTC
       _signalingService.connect(_localPeerId!);
 
-      print('Ready to receive calls');
+      // Avvia foreground service e wake lock per mantenere audio in background
+      await _foregroundService.startService();
+      await WakelockPlus.enable();
+
+      print('Waiting for TURN credentials from signaling server...');
     } catch (e) {
       _updateState(CallState.error, errorMessage: e.toString());
       print('Connection error: $e');
+    }
+  }
+
+  void _handleTurnCredentials(String username, String credential) async {
+    _turnUsername = username;
+    _turnCredential = credential;
+    print('TURN credentials received, initializing WebRTC...');
+
+    try {
+      await _webrtcService.initialize(
+        turnUsername: _turnUsername,
+        turnCredential: _turnCredential,
+      );
+      await _webrtcService.startLocalStream();
+      print('Ready to receive calls');
+    } catch (e) {
+      _updateState(CallState.error, errorMessage: e.toString());
+      print('Error initializing WebRTC: $e');
     }
   }
 
@@ -97,9 +136,12 @@ class CallProvider with ChangeNotifier {
       _resetIceState();
 
       try {
-        // Cleanup e reinizializza il peer connection
+        // Cleanup e reinizializza il peer connection con le credenziali TURN correnti
         await _webrtcService.dispose();
-        await _webrtcService.initialize();
+        await _webrtcService.initialize(
+          turnUsername: _turnUsername,
+          turnCredential: _turnCredential,
+        );
         await _webrtcService.startLocalStream();
 
         _updateState(CallState.connecting);
@@ -301,12 +343,18 @@ class CallProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void disconnect() {
+  Future<void> disconnect() async {
     _webrtcService.dispose();
     _signalingService.disconnect();
     _remotePeerId = null;
     _isOfferer = false;
     _resetIceState();
+
+    // Rilascia risorse background
+    await _foregroundService.stopService();
+    await _audioSessionManager.deactivate();
+    await WakelockPlus.disable();
+
     _updateState(CallState.idle);
   }
 
@@ -320,7 +368,28 @@ class CallProvider with ChangeNotifier {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+        _wasConnectedBeforePause =
+            _callState.state == CallState.connected ||
+            _callState.state == CallState.connecting;
+        print('App paused, call active: $_wasConnectedBeforePause');
+        break;
+      case AppLifecycleState.resumed:
+        print('App resumed, was connected: $_wasConnectedBeforePause');
+        if (_wasConnectedBeforePause && _callState.state != CallState.idle) {
+          _signalingService.ensureConnected(_localPeerId!);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     disconnect();
     super.dispose();
   }

@@ -1,6 +1,4 @@
 {
   "SIGNALING_SERVER_URL": "http://81.56.51.227:16429",
-  "TURN_SERVER_URL": "turn:81.56.51.227:16430",
-  "TURN_USERNAME": "voipuser",
-  "TURN_PASSWORD": "voippass123"
+  "TURN_SERVER_URL": "turn:81.56.51.227:16430"
 }

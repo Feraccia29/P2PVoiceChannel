@@ -23,7 +23,7 @@ class AppConstants {
   static const String defaultRoomId = 'gaming-voice-channel';
 
   // Configurazione ICE servers (STUN + TURN)
-  static Map<String, dynamic> get iceServers => {
+  static Map<String, dynamic> iceServers({String? turnUser, String? turnCred}) => {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
       {'urls': 'stun:stun1.l.google.com:19302'},
@@ -32,8 +32,8 @@ class AppConstants {
           turnServerUrl,
           '$turnServerUrl?transport=tcp',
         ],
-        'username': turnUsername,
-        'credential': turnPassword,
+        'username': turnUser ?? turnUsername,
+        'credential': turnCred ?? turnPassword,
       },
     ]
   };

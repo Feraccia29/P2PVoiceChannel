@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:provider/provider.dart';
 import 'providers/call_provider.dart';
 import 'screens/call_screen.dart';
@@ -36,7 +37,9 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'VoIP P2P',
         theme: ThemeData.dark(),
-        home: const CallScreen(),
+        home: const WithForegroundTask(
+          child: CallScreen(),
+        ),
         debugShowCheckedModeBanner: false,
       ),
     );

@@ -1,5 +1,17 @@
 const { Server } = require('socket.io');
+const crypto = require('crypto');
 const port = 16429;
+const TURN_SECRET = process.env.TURN_AUTH_SECRET || 'default-secret';
+
+function generateTurnCredentials() {
+  const unixTimestamp = Math.floor(Date.now() / 1000) + 86400; // scade tra 24h
+  const username = `${unixTimestamp}:voipuser`;
+  const hmac = crypto.createHmac('sha1', TURN_SECRET);
+  hmac.update(username);
+  const credential = hmac.digest('base64');
+  return { username, credential };
+}
+
 const io = new Server(port, {
   cors: {
     origin: '*',
@@ -17,6 +29,11 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     socket.join(peerId); // Join a room with peerId for direct messaging
     socketToPeer.set(socket.id, { roomId, peerId });
+
+    // Invia credenziali TURN temporanee al client
+    const turnCreds = generateTurnCredentials();
+    socket.emit('turn-credentials', turnCreds);
+    console.log(`TURN credentials generated for ${peerId} (expires in 24h)`);
 
     if (!rooms.has(roomId)) {
       rooms.set(roomId, new Set());

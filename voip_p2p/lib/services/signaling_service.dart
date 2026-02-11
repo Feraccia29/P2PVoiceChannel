@@ -12,6 +12,7 @@ class SignalingService {
   Function(String)? onPeerJoined;
   Function(String)? onPeerLeft;
   Function()? onConnected;
+  Function(String username, String credential)? onTurnCredentials;
 
   void connect(String peerId) {
     _peerId = peerId;
@@ -21,6 +22,10 @@ class SignalingService {
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(10)
+          .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(5000)
           .build(),
     );
 
@@ -30,6 +35,13 @@ class SignalingService {
       print('Connected to signaling server');
       joinRoom(AppConstants.defaultRoomId);
       onConnected?.call();
+    });
+
+    _socket!.on('turn-credentials', (data) {
+      final username = data['username'] as String;
+      final credential = data['credential'] as String;
+      print('Received TURN credentials (username: $username)');
+      onTurnCredentials?.call(username, credential);
     });
 
     _socket!.on('peer-joined', (data) {
@@ -59,6 +71,12 @@ class SignalingService {
       onIceCandidateReceived?.call(data);
     });
 
+    _socket!.on('reconnect', (_) {
+      print('Socket.io reconnected, re-joining room');
+      joinRoom(AppConstants.defaultRoomId);
+      onConnected?.call();
+    });
+
     _socket!.on('disconnect', (_) {
       print('Disconnected from signaling server');
     });
@@ -66,6 +84,15 @@ class SignalingService {
     _socket!.on('connect_error', (error) {
       print('Connection error: $error');
     });
+  }
+
+  /// Verifica che il socket sia connesso, altrimenti riconnette.
+  /// Chiamato al resume dell'app dopo essere stata in background.
+  void ensureConnected(String peerId) {
+    if (_socket == null || _socket!.disconnected) {
+      print('Socket disconnected during background, reconnecting...');
+      connect(peerId);
+    }
   }
 
   void joinRoom(String roomId) {

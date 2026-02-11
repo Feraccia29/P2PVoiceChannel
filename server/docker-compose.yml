@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "16429:16429"
+    environment:
+      - TURN_AUTH_SECRET=478926625b3b2c8b4e730248939bf14de52f0ea57de0943ffe07c8f37744aa80
     restart: unless-stopped
 
   coturn:
