@@ -1,0 +1,77 @@
+signaling-1  | Signaling server listening on port 16429
+coturn-1     | 0: (1): INFO: Listener address to use: 0.0.0.0
+coturn-1     | 0: (1): INFO: Listener address to use: 0.0.0.0
+coturn-1     | 0: (1): INFO: System cpu num is 16                                                                                                                                                         
+coturn-1     | 0: (1): INFO: System enable num is 16                                                                                                                                                      
+coturn-1     | 0: (1): INFO: Configured cpu num is 16                                                                                                                                                     
+coturn-1     | 0: (1): INFO: Coturn Version Coturn-4.8.0 'Gorst'                                                                                                                                          
+coturn-1     | 0: (1): INFO: Max number of open files/sockets allowed for this process: 1048576                                                                                                           
+coturn-1     | 0: (1): INFO: Due to the open files/sockets limitation, max supported number of TURN Sessions possible is: 524000 (approximately)                                                          
+coturn-1     | 0: (1): INFO:                                                                                                                                                                              
+coturn-1     |                                                                                                                                                                                            
+coturn-1     | ==== Show him the instruments, Practical Frost: ====                                                                                                                                       
+coturn-1     |                                                                                                                                                                                            
+coturn-1     | 0: (1): INFO: OpenSSL compile-time version: OpenSSL 3.5.4 30 Sep 2025 (0x30500040)                                                                                                         
+coturn-1     | 0: (1): INFO: TLS 1.2 supported
+coturn-1     | 0: (1): INFO: TLS 1.3 supported                                                                                                                                                            
+coturn-1     | 0: (1): INFO: DTLS 1.2 supported                                                                                                                                                           
+coturn-1     | 0: (1): INFO: TURN/STUN ALPN supported                                                                                                                                                     
+coturn-1     | 0: (1): INFO: Third-party authorization (oAuth) supported                                                                                                                                  
+coturn-1     | 0: (1): INFO: GCM (AEAD) supported                                                                                                                                                         
+coturn-1     | 0: (1): INFO: SQLite supported, default database location is /var/lib/coturn/turndb                                                                                                        
+coturn-1     | 0: (1): INFO: Redis supported
+coturn-1     | 0: (1): INFO: PostgreSQL supported                                                                                                                                                         
+coturn-1     | 0: (1): INFO: MySQL supported                                                                                                                                                              
+coturn-1     | 0: (1): INFO: MongoDB supported                                                                                                                                                            
+coturn-1     | 0: (1): INFO: Default Net Engine version: 3 (UDP thread per CPU core)                                                                                                                      
+coturn-1     | 0: (1): INFO: Domain name: localdomain                                                                                                                                                     
+coturn-1     | 0: (1): INFO: Default realm: voip-p2p                                                                                                                                                      
+coturn-1     | 0: (1): ERROR: CONFIG: Empty cli-password, and so telnet cli interface is disabled! Please set a non empty cli-password!                                                                   
+coturn-1     | 0: (1): INFO: Certificate file found: //turn_server_cert.pem                                                                                                                               
+coturn-1     | 0: (1): INFO: Private key file found: //turn_server_pkey.pem
+coturn-1     | 0: (1): INFO: Relay address to use: 0.0.0.0                                                                                                                                                
+coturn-1     | 0: (1): WARNING: Cannot create pid file: /var/run/turnserver.pid                                                                                                                           
+coturn-1     | 0: (1): INFO: pid file created: /var/tmp/turnserver.pid                                                                                                                                    
+coturn-1     | 0: (1): INFO: IO method: epoll (with changelist)                                                                                                                                           
+coturn-1     | 0: (1): INFO: RFC5780 disabled! /NAT behavior discovery/                                                                                                                                   
+coturn-1     | 0: (1): INFO: Wait for relay ports initialization...                                                                                                                                       
+coturn-1     | 0: (1): INFO:   relay 0.0.0.0 initialization...                                                                                                                                            
+coturn-1     | 0: (1): INFO:   relay 0.0.0.0 initialization done                                                                                                                                          
+coturn-1     | 0: (1): INFO: Relay ports initialization done                                                                                                                                              
+coturn-1     | 0: (20): DEBUG: turn server id=0 created                                                                                                                                                   
+coturn-1     | 0: (22): DEBUG: turn server id=2 created
+coturn-1     | 0: (23): DEBUG: turn server id=3 created                                                                                                                                                   
+coturn-1     | 0: (21): DEBUG: turn server id=1 created                                                                                                                                                   
+coturn-1     | 0: (24): DEBUG: turn server id=4 created                                                                                                                                                   
+coturn-1     | 0: (25): DEBUG: turn server id=5 created                                                                                                                                                   
+coturn-1     | 0: (26): DEBUG: turn server id=6 created                                                                                                                                                   
+coturn-1     | 0: (27): DEBUG: turn server id=7 created                                                                                                                                                   
+coturn-1     | 0: (20): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (28): DEBUG: turn server id=8 created
+coturn-1     | 0: (29): DEBUG: turn server id=9 created                                                                                                                                                   
+coturn-1     | 0: (30): DEBUG: turn server id=10 created                                                                                                                                                  
+coturn-1     | 0: (31): DEBUG: turn server id=11 created                                                                                                                                                  
+coturn-1     | 0: (32): DEBUG: turn server id=12 created                                                                                                                                                  
+coturn-1     | 0: (1): INFO: Total General servers: 16                                                                                                                                                    
+coturn-1     | 0: (33): DEBUG: turn server id=13 created                                                                                                                                                  
+coturn-1     | 0: (34): DEBUG: turn server id=14 created                                                                                                                                                  
+coturn-1     | 0: (35): DEBUG: turn server id=15 created                                                                                                                                                  
+coturn-1     | 0: (23): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (22): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (21): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430
+coturn-1     | 0: (24): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (25): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (26): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (27): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (28): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (29): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (30): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (31): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430
+coturn-1     | 0: (32): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430                                                                                                                                
+coturn-1     | 0: (33): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430
+coturn-1     | 0: (34): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430
+coturn-1     | 0: (1): INFO: IPv4. UDP listener opened on: 0.0.0.0:16430                                                                                                                                  
+coturn-1     | 0: (35): INFO: IPv4. TCP listener opened on : 0.0.0.0:16430
+coturn-1     | 0: (1): INFO: Total auth threads: 9
+coturn-1     | 0: (1): INFO: prometheus collector disabled, not started
+signaling-1  | Client connected: O-CX_kN20xLGz2PVAAAB 
