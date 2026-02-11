@@ -8,7 +8,6 @@ import '../services/webrtc_service.dart';
 import '../services/permission_service.dart';
 import '../services/foreground_service_manager.dart';
 import '../services/audio_session_manager.dart';
-import '../utils/constants.dart';
 
 class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   final SignalingService _signalingService = SignalingService();
@@ -23,6 +22,10 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   // Credenziali TURN temporanee ricevute dal signaling server
   String? _turnUsername;
   String? _turnCredential;
+  bool _webrtcReady = false;
+
+  // Buffering peer-joined ricevuti prima che WebRTC sia pronto
+  String? _pendingPeerJoined;
 
   // Buffering ICE candidates ricevuti prima della remote description
   final List<RTCIceCandidate> _pendingIceCandidates = [];
@@ -99,9 +102,16 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
         turnCredential: _turnCredential,
       );
       await _webrtcService.startLocalStream();
-      // WebRTC pronto, ora joiniamo la room
-      _signalingService.joinRoom(AppConstants.defaultRoomId);
-      print('WebRTC ready, joined room');
+      _webrtcReady = true;
+      print('WebRTC ready');
+
+      // Se un peer era arrivato prima che WebRTC fosse pronto, gestiscilo ora
+      if (_pendingPeerJoined != null) {
+        final peerId = _pendingPeerJoined!;
+        _pendingPeerJoined = null;
+        print('Flushing pending peer-joined: $peerId');
+        _handlePeerJoined(peerId);
+      }
     } catch (e) {
       _updateState(CallState.error, errorMessage: e.toString());
       print('Error initializing WebRTC: $e');
@@ -111,6 +121,13 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   void _handlePeerJoined(String peerId) async {
     if (_remotePeerId != null) {
       print('Peer already connected, ignoring new peer');
+      return;
+    }
+
+    // Se WebRTC non e' ancora pronto, bufferizza il peer
+    if (!_webrtcReady) {
+      print('WebRTC not ready yet, buffering peer-joined: $peerId');
+      _pendingPeerJoined = peerId;
       return;
     }
 
@@ -351,6 +368,10 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
     _signalingService.disconnect();
     _remotePeerId = null;
     _isOfferer = false;
+    _webrtcReady = false;
+    _pendingPeerJoined = null;
+    _turnUsername = null;
+    _turnCredential = null;
     _resetIceState();
 
     // Rilascia risorse background

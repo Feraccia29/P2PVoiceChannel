@@ -33,7 +33,7 @@ class SignalingService {
 
     _socket!.on('connect', (_) {
       print('Connected to signaling server');
-      _socket!.emit('request-turn-credentials');
+      joinRoom(AppConstants.defaultRoomId);
       onConnected?.call();
     });
 
@@ -72,8 +72,8 @@ class SignalingService {
     });
 
     _socket!.on('reconnect', (_) {
-      print('Socket.io reconnected');
-      _socket!.emit('request-turn-credentials');
+      print('Socket.io reconnected, re-joining room');
+      joinRoom(AppConstants.defaultRoomId);
       onConnected?.call();
     });
 
