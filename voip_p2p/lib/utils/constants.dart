@@ -53,7 +53,7 @@ class AppConstants {
   static const Map<String, dynamic> opusParams = {
     'ptime': 20,
     'maxaveragebitrate': 32000,
-    'stereo': 0,
+    'stereo': 1,
     'useinbandfec': 1,
     'usedtx': 1,
   };

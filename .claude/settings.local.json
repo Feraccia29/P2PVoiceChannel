@@ -17,7 +17,10 @@
       "Bash(npx sharp-cli:*)",
       "Bash(taskkill:*)",
       "Bash(flutter pub deps:*)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "Bash(findstr:*)",
+      "Bash(test:*)",
+      "Bash(select-string:*)"
     ]
   }
 }

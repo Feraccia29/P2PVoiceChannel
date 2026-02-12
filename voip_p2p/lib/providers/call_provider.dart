@@ -1,16 +1,21 @@
+import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:uuid/uuid.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/call_state.dart';
+import '../models/peer_info.dart';
+import '../models/connection_stats.dart';
 import '../services/signaling_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/permission_service.dart';
 import '../services/foreground_service_manager.dart';
 import '../services/audio_session_manager.dart';
+import '../services/audio_level_monitor.dart';
+import '../services/stats_monitor.dart';
+import '../services/audio_device_service.dart';
 
 class CallProvider with ChangeNotifier, WidgetsBindingObserver {
-  final SignalingService _signalingService = SignalingService();
+  final SignalingService _signalingService;
   final WebRTCService _webrtcService = WebRTCService();
   final ForegroundServiceManager _foregroundService = ForegroundServiceManager();
   final AudioSessionManager _audioSessionManager = AudioSessionManager();
@@ -19,6 +24,13 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   String? _localPeerId;
   String? _remotePeerId;
 
+  // Username
+  String? _localUsername;
+  String? _remoteUsername;
+
+  // Room
+  String? _currentRoomId;
+
   // Credenziali TURN temporanee ricevute dal signaling server
   String? _turnUsername;
   String? _turnCredential;
@@ -26,6 +38,7 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // Buffering peer-joined e offer ricevuti prima che WebRTC sia pronto
   String? _pendingPeerJoined;
+  String? _pendingPeerUsername;
   Map<String, dynamic>? _pendingOffer;
 
   // Buffering ICE candidates ricevuti prima della remote description
@@ -40,13 +53,50 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
   // Lifecycle tracking
   bool _wasConnectedBeforePause = false;
 
+  // Audio level monitoring
+  AudioLevelMonitor? _audioLevelMonitor;
+
+  // Participant list
+  List<PeerInfo> _peers = [];
+
+  // Connection stats monitoring
+  StatsMonitor? _statsMonitor;
+
+  // Speaking threshold for audio level
+  static const double _speakingThreshold = 0.02;
+
+  // Subscriptions for tracking speaking state
+  StreamSubscription<double>? _localSpeakingSub;
+  StreamSubscription<double>? _remoteSpeakingSub;
+
   CallStateModel get callState => _callState;
   bool get isConnected => _callState.state == CallState.connected;
   bool get isConnecting => _callState.state == CallState.connecting;
   bool get isIdle => _callState.state == CallState.idle;
+  String? get localUsername => _localUsername;
+  String? get remoteUsername => _remoteUsername;
+  String? get currentRoomId => _currentRoomId;
 
-  CallProvider() {
-    _localPeerId = const Uuid().v4();
+  Stream<double> get localAudioLevel =>
+      _audioLevelMonitor?.localAudioLevel ?? const Stream.empty();
+  Stream<double> get remoteAudioLevel =>
+      _audioLevelMonitor?.remoteAudioLevel ?? const Stream.empty();
+
+  List<PeerInfo> get peers => List.unmodifiable(_peers);
+
+  Stream<ConnectionStats> get connectionStatsStream =>
+      _statsMonitor?.statsStream ?? const Stream.empty();
+
+  ConnectionStats? get lastConnectionStats => _statsMonitor?.lastStats;
+
+  CallProvider({
+    required SignalingService signalingService,
+    required String localPeerId,
+    required String localUsername,
+  }) : _signalingService = signalingService {
+    _localPeerId = localPeerId;
+    _localUsername = localUsername;
+    _callState = CallStateModel(localUsername: localUsername);
     _setupCallbacks();
     WidgetsBinding.instance.addObserver(this);
     _foregroundService.initialize();
@@ -59,15 +109,32 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
     _signalingService.onAnswerReceived = _handleAnswerReceived;
     _signalingService.onIceCandidateReceived = _handleIceCandidateReceived;
     _signalingService.onTurnCredentials = _handleTurnCredentials;
+    _signalingService.onRoomPeers = _handleRoomPeers;
+    _signalingService.onPeerMuteStatusChanged = _handlePeerMuteStatusChanged;
 
     _webrtcService.onRemoteStream = _handleRemoteStream;
     _webrtcService.onIceCandidate = _handleLocalIceCandidate;
     _webrtcService.onConnectionStateChange = _handleConnectionStateChange;
   }
 
-  Future<void> connect() async {
+  Future<void> connect(String roomId) async {
     try {
+      if (_localUsername == null || _localUsername!.isEmpty) {
+        throw Exception('Username non impostato.');
+      }
+
+      _currentRoomId = roomId;
       _updateState(CallState.connecting);
+
+      // Initialize local peer in participants list
+      _peers = [
+        PeerInfo(
+          peerId: _localPeerId!,
+          username: _localUsername!,
+          isMuted: _callState.isMuted,
+          isLocal: true,
+        ),
+      ];
 
       final hasPermission = await PermissionService.requestMicrophonePermission();
       if (!hasPermission) {
@@ -77,15 +144,14 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
       // Configura audio session PRIMA di WebRTC per impostare il contesto audio corretto
       await _audioSessionManager.configure();
 
-      // Connetti al signaling server: le credenziali TURN arrivano via callback
-      // e _handleTurnCredentials inizializzera' WebRTC
-      _signalingService.connect(_localPeerId!);
+      // Socket gia' connesso dal LobbyProvider, join room
+      _signalingService.joinRoom(roomId);
 
       // Avvia foreground service e wake lock per mantenere audio in background
       await _foregroundService.startService();
       await WakelockPlus.enable();
 
-      print('Waiting for TURN credentials from signaling server...');
+      print('Joined room $roomId, waiting for TURN credentials...');
     } catch (e) {
       _updateState(CallState.error, errorMessage: e.toString());
       print('Connection error: $e');
@@ -103,7 +169,25 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
         turnCredential: _turnCredential,
       );
       await _webrtcService.startLocalStream();
+      await _applyOutputDevicePreference();
       _webrtcReady = true;
+
+      // Initialize audio level monitor
+      _audioLevelMonitor = AudioLevelMonitor(_webrtcService);
+
+      // Initialize stats monitor
+      _statsMonitor = StatsMonitor(_webrtcService);
+
+      // Subscribe to audio levels for speaking state tracking
+      _localSpeakingSub = _audioLevelMonitor!.localAudioLevel.listen((level) {
+        _updateSpeakingState(_localPeerId!, level > _speakingThreshold);
+      });
+      _remoteSpeakingSub = _audioLevelMonitor!.remoteAudioLevel.listen((level) {
+        if (_remotePeerId != null) {
+          _updateSpeakingState(_remotePeerId!, level > _speakingThreshold);
+        }
+      });
+
       print('WebRTC ready');
 
       // Flush eventi bufferizzati arrivati prima che WebRTC fosse pronto
@@ -114,9 +198,11 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
         _handleOfferReceived(offer);
       } else if (_pendingPeerJoined != null) {
         final peerId = _pendingPeerJoined!;
+        final peerUsername = _pendingPeerUsername ?? 'Unknown';
         _pendingPeerJoined = null;
+        _pendingPeerUsername = null;
         print('Flushing pending peer-joined: $peerId');
-        _handlePeerJoined(peerId);
+        _handlePeerJoined(peerId, peerUsername);
       }
     } catch (e) {
       _updateState(CallState.error, errorMessage: e.toString());
@@ -124,7 +210,34 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  void _handlePeerJoined(String peerId) async {
+  void _handleRoomPeers(List<Map<String, dynamic>> peers) {
+    for (final peerData in peers) {
+      final peerId = peerData['peerId'] as String;
+      final username = peerData['username'] as String? ?? 'Unknown';
+      final isMuted = peerData['isMuted'] as bool? ?? false;
+
+      // Add to peers list if not already present
+      if (!_peers.any((p) => p.peerId == peerId)) {
+        _peers.add(PeerInfo(
+          peerId: peerId,
+          username: username,
+          isMuted: isMuted,
+        ));
+      }
+
+      // Keep the existing single-remote-peer tracking
+      if (_remoteUsername == null) {
+        _remoteUsername = username;
+        _callState = _callState.copyWith(remoteUsername: username);
+      }
+    }
+    notifyListeners();
+    if (peers.isNotEmpty) {
+      print('Room peers received: ${peers.length} existing peers');
+    }
+  }
+
+  void _handlePeerJoined(String peerId, String username) async {
     if (_remotePeerId != null) {
       print('Peer already connected, ignoring new peer');
       return;
@@ -134,10 +247,20 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
     if (!_webrtcReady) {
       print('WebRTC not ready yet, buffering peer-joined: $peerId');
       _pendingPeerJoined = peerId;
+      _pendingPeerUsername = username;
       return;
     }
 
     _remotePeerId = peerId;
+    _remoteUsername = username;
+    _callState = _callState.copyWith(remoteUsername: username, clearErrorMessage: true);
+
+    // Add to peers list
+    if (!_peers.any((p) => p.peerId == peerId)) {
+      _peers.add(PeerInfo(peerId: peerId, username: username));
+    }
+
+    notifyListeners();
     _isOfferer = true;
     _resetIceState();
 
@@ -147,7 +270,7 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
         'sdp': offer.sdp,
         'type': offer.type,
       });
-      print('Offer sent to $peerId');
+      print('Offer sent to $peerId ($username)');
     } catch (e) {
       print('Error creating offer: $e');
       _updateState(CallState.error, errorMessage: e.toString());
@@ -156,25 +279,40 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void _handlePeerLeft(String peerId) async {
     if (_remotePeerId == peerId) {
-      print('Remote peer disconnected');
+      final leftUsername = _remoteUsername ?? 'L\'altro utente';
+      print('Remote peer disconnected: $leftUsername');
       _remotePeerId = null;
+      _remoteUsername = null;
       _isOfferer = false;
       _resetIceState();
 
+      // Remove from peers list
+      _peers.removeWhere((p) => p.peerId == peerId);
+
+      _audioLevelMonitor?.stop();
+      _statsMonitor?.stop();
+
+      // Cleanup e reinizializza il peer connection con le credenziali TURN correnti
+      await _webrtcService.dispose();
+
       try {
-        // Cleanup e reinizializza il peer connection con le credenziali TURN correnti
-        await _webrtcService.dispose();
         await _webrtcService.initialize(
           turnUsername: _turnUsername,
           turnCredential: _turnCredential,
         );
         await _webrtcService.startLocalStream();
-
-        _updateState(CallState.connecting);
+        await _applyOutputDevicePreference();
       } catch (e) {
         print('Error reinitializing after peer left: $e');
-        _updateState(CallState.error, errorMessage: e.toString());
       }
+
+      _callState = _callState.copyWith(
+        state: CallState.connecting,
+        clearConnectedAt: true,
+        clearRemoteUsername: true,
+        errorMessage: '$leftUsername ha lasciato la room',
+      );
+      notifyListeners();
     }
   }
 
@@ -203,6 +341,15 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
       }
 
       _remotePeerId = remotePeerId;
+
+      // Estrai username dell'offerer dal messaggio (iniettato dal server)
+      final offerUsername = data['username'] as String? ?? 'Unknown';
+      if (_remoteUsername == null) {
+        _remoteUsername = offerUsername;
+        _callState = _callState.copyWith(remoteUsername: offerUsername);
+        notifyListeners();
+      }
+
       if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
         _isOfferer = false;
       }
@@ -241,6 +388,14 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
       if (signalingState != RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
         print('Ignoring stale answer (signaling state: $signalingState)');
         return;
+      }
+
+      // Aggiorna username remoto dall'answer (iniettato dal server)
+      final answerUsername = data['username'] as String?;
+      if (answerUsername != null && _remoteUsername == null) {
+        _remoteUsername = answerUsername;
+        _callState = _callState.copyWith(remoteUsername: answerUsername);
+        notifyListeners();
       }
 
       final answer = RTCSessionDescription(
@@ -306,7 +461,13 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void _handleRemoteStream(MediaStream stream) {
     print('Remote stream received and playing');
-    _updateState(CallState.connected);
+    _audioLevelMonitor?.start();
+    _statsMonitor?.start();
+    _callState = _callState.copyWith(
+      state: CallState.connected,
+      connectedAt: DateTime.now(),
+    );
+    notifyListeners();
   }
 
   void _handleConnectionStateChange(RTCPeerConnectionState state) {
@@ -314,7 +475,16 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
 
     if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
       _iceRestartAttempts = 0;
-      _updateState(CallState.connected);
+      // Only set connectedAt if not already set (avoid overwriting on ICE restart)
+      if (_callState.connectedAt == null) {
+        _callState = _callState.copyWith(
+          state: CallState.connected,
+          connectedAt: DateTime.now(),
+        );
+      } else {
+        _callState = _callState.copyWith(state: CallState.connected);
+      }
+      notifyListeners();
     } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
       if (_isOfferer) {
         _attemptIceRestart();
@@ -363,29 +533,81 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  Future<void> _applyOutputDevicePreference() async {
+    try {
+      final deviceId = await AudioDeviceService.getPreferredOutputDeviceId();
+      if (deviceId != null) {
+        await _webrtcService.setAudioOutputDevice(deviceId);
+      }
+    } catch (e) {
+      print('Error applying output device preference: $e');
+    }
+  }
+
   void _resetIceState() {
     _remoteDescriptionSet = false;
     _pendingIceCandidates.clear();
     _iceRestartAttempts = 0;
   }
 
+  void _handlePeerMuteStatusChanged(String peerId, bool isMuted) {
+    final index = _peers.indexWhere((p) => p.peerId == peerId);
+    if (index != -1) {
+      _peers[index] = _peers[index].copyWith(isMuted: isMuted);
+      notifyListeners();
+    }
+  }
+
+  void _updateSpeakingState(String peerId, bool isSpeaking) {
+    final index = _peers.indexWhere((p) => p.peerId == peerId);
+    if (index != -1 && _peers[index].isSpeaking != isSpeaking) {
+      _peers[index] = _peers[index].copyWith(isSpeaking: isSpeaking);
+      notifyListeners();
+    }
+  }
+
   void toggleMute() {
     _webrtcService.toggleMute();
     final isMuted = _webrtcService.isMuted();
     _callState = _callState.copyWith(isMuted: isMuted);
+
+    // Update local peer in peers list
+    final index = _peers.indexWhere((p) => p.isLocal);
+    if (index != -1) {
+      _peers[index] = _peers[index].copyWith(isMuted: isMuted);
+    }
+
+    // Notify remote peers via signaling
+    _signalingService.sendMuteStatus(isMuted);
+
     notifyListeners();
   }
 
   Future<void> disconnect() async {
+    _localSpeakingSub?.cancel();
+    _localSpeakingSub = null;
+    _remoteSpeakingSub?.cancel();
+    _remoteSpeakingSub = null;
+
+    _audioLevelMonitor?.dispose();
+    _audioLevelMonitor = null;
+
+    _statsMonitor?.dispose();
+    _statsMonitor = null;
+
     _webrtcService.dispose();
-    _signalingService.disconnect();
+    _signalingService.leaveRoom();
     _remotePeerId = null;
+    _remoteUsername = null;
+    _currentRoomId = null;
     _isOfferer = false;
     _webrtcReady = false;
     _pendingPeerJoined = null;
+    _pendingPeerUsername = null;
     _pendingOffer = null;
     _turnUsername = null;
     _turnCredential = null;
+    _peers.clear();
     _resetIceState();
 
     // Rilascia risorse background
@@ -393,7 +615,12 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
     await _audioSessionManager.deactivate();
     await WakelockPlus.disable();
 
-    _updateState(CallState.idle);
+    _callState = CallStateModel(
+      state: CallState.idle,
+      isMuted: false,
+      localUsername: _localUsername,
+    );
+    notifyListeners();
   }
 
   void _updateState(CallState state, {String? errorMessage}) {
@@ -401,6 +628,9 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
       state: state,
       errorMessage: errorMessage,
       isMuted: _callState.isMuted,
+      localUsername: _callState.localUsername,
+      remoteUsername: _callState.remoteUsername,
+      connectedAt: state == CallState.idle ? null : _callState.connectedAt,
     );
     notifyListeners();
   }
@@ -417,7 +647,10 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         print('App resumed, was connected: $_wasConnectedBeforePause');
         if (_wasConnectedBeforePause && _callState.state != CallState.idle) {
-          _signalingService.ensureConnected(_localPeerId!);
+          _signalingService.ensureConnected(
+            _localPeerId!,
+            username: _localUsername ?? 'Unknown',
+          );
         }
         break;
       default:

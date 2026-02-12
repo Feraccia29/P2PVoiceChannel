@@ -15,6 +15,11 @@ class WebRTCService {
   RTCPeerConnectionState? get connectionState => _peerConnection?.connectionState;
   RTCSignalingState? get signalingState => _peerConnection?.signalingState;
 
+  Future<List<StatsReport>> getStats() async {
+    if (_peerConnection == null) return [];
+    return await _peerConnection!.getStats();
+  }
+
   Future<void> initialize({String? turnUsername, String? turnCredential}) async {
     final config = {
       ...AppConstants.iceServers(turnUser: turnUsername, turnCred: turnCredential),
@@ -185,20 +190,51 @@ class WebRTCService {
     return newLines.join('\r\n');
   }
 
+  Future<void> setAudioOutputDevice(String deviceId) async {
+    await Helper.selectAudioOutput(deviceId);
+  }
+
   Future<void> dispose() async {
-    _localStream?.getTracks().forEach((track) {
-      track.stop();
-    });
-    _remoteStream?.getTracks().forEach((track) {
-      track.stop();
-    });
+    try {
+      _localStream?.getTracks().forEach((track) {
+        track.stop();
+      });
+    } catch (e) {
+      print('Error stopping local tracks: $e');
+    }
 
-    _remoteRenderer?.srcObject = null;
-    await _remoteRenderer?.dispose();
+    try {
+      _remoteStream?.getTracks().forEach((track) {
+        track.stop();
+      });
+    } catch (e) {
+      print('Error stopping remote tracks: $e');
+    }
 
-    await _localStream?.dispose();
-    await _remoteStream?.dispose();
-    await _peerConnection?.close();
+    try {
+      _remoteRenderer?.srcObject = null;
+      await _remoteRenderer?.dispose();
+    } catch (e) {
+      print('Error disposing renderer: $e');
+    }
+
+    try {
+      await _localStream?.dispose();
+    } catch (e) {
+      print('Error disposing local stream: $e');
+    }
+
+    try {
+      await _remoteStream?.dispose();
+    } catch (e) {
+      print('Error disposing remote stream: $e');
+    }
+
+    try {
+      await _peerConnection?.close();
+    } catch (e) {
+      print('Error closing peer connection: $e');
+    }
 
     _localStream = null;
     _remoteStream = null;

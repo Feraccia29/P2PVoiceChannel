@@ -55,6 +55,15 @@ dependencies:
   # Wake lock per mantenere CPU attiva durante chiamata
   wakelock_plus: ^1.2.8
 
+  # Persistenza locale per username
+  shared_preferences: ^2.3.3
+
+  # Typography moderna (opzionale)
+  google_fonts: ^6.2.1
+
+  # Desktop window management (custom title bar)
+  window_manager: ^0.4.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

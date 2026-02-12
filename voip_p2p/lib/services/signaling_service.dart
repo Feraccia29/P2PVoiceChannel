@@ -4,18 +4,30 @@ import '../utils/constants.dart';
 class SignalingService {
   IO.Socket? _socket;
   String? _peerId;
+  String? _username;
+  String? _currentRoomId;
 
-  // Callbacks
+  bool get isConnected => _socket?.connected ?? false;
+  String? get currentRoomId => _currentRoomId;
+
+  // Callbacks - call signaling
   Function(Map<String, dynamic>)? onOfferReceived;
   Function(Map<String, dynamic>)? onAnswerReceived;
   Function(Map<String, dynamic>)? onIceCandidateReceived;
-  Function(String)? onPeerJoined;
+  Function(String peerId, String username)? onPeerJoined;
   Function(String)? onPeerLeft;
   Function()? onConnected;
   Function(String username, String credential)? onTurnCredentials;
+  Function(List<Map<String, dynamic>>)? onRoomPeers;
+  Function(String peerId, bool isMuted)? onPeerMuteStatusChanged;
 
-  void connect(String peerId) {
+  // Callbacks - lobby
+  Function(List<Map<String, dynamic>>)? onRoomListReceived;
+  Function(List<Map<String, dynamic>>)? onRoomListUpdate;
+
+  void connect(String peerId, {required String username}) {
     _peerId = peerId;
+    _username = username;
 
     _socket = IO.io(
       AppConstants.signalingServerUrl,
@@ -33,8 +45,11 @@ class SignalingService {
 
     _socket!.on('connect', (_) {
       print('Connected to signaling server');
-      joinRoom(AppConstants.defaultRoomId);
       onConnected?.call();
+      // Re-join room if we were in one before reconnect
+      if (_currentRoomId != null) {
+        joinRoom(_currentRoomId!);
+      }
     });
 
     _socket!.on('turn-credentials', (data) {
@@ -44,10 +59,21 @@ class SignalingService {
       onTurnCredentials?.call(username, credential);
     });
 
+    _socket!.on('room-peers', (data) {
+      if (data is List) {
+        final peers = data
+            .map((p) => Map<String, dynamic>.from(p as Map))
+            .toList();
+        print('Received room-peers: ${peers.length} existing peers');
+        onRoomPeers?.call(peers);
+      }
+    });
+
     _socket!.on('peer-joined', (data) {
       final remotePeerId = data['peerId'] as String;
-      print('Peer joined: $remotePeerId');
-      onPeerJoined?.call(remotePeerId);
+      final peerUsername = data['username'] as String? ?? 'Anonymous';
+      print('Peer joined: $remotePeerId ($peerUsername)');
+      onPeerJoined?.call(remotePeerId, peerUsername);
     });
 
     _socket!.on('peer-left', (data) {
@@ -71,10 +97,38 @@ class SignalingService {
       onIceCandidateReceived?.call(data);
     });
 
+    _socket!.on('peer-mute-status', (data) {
+      final peerId = data['peerId'] as String;
+      final isMuted = data['isMuted'] as bool;
+      print('Peer mute status changed: $peerId -> $isMuted');
+      onPeerMuteStatusChanged?.call(peerId, isMuted);
+    });
+
+    _socket!.on('room-list', (data) {
+      if (data is List) {
+        final rooms = data
+            .map((r) => Map<String, dynamic>.from(r as Map))
+            .toList();
+        print('Received room-list: ${rooms.length} rooms');
+        onRoomListReceived?.call(rooms);
+      }
+    });
+
+    _socket!.on('room-list-update', (data) {
+      if (data is List) {
+        final rooms = data
+            .map((r) => Map<String, dynamic>.from(r as Map))
+            .toList();
+        onRoomListUpdate?.call(rooms);
+      }
+    });
+
     _socket!.on('reconnect', (_) {
-      print('Socket.io reconnected, re-joining room');
-      joinRoom(AppConstants.defaultRoomId);
+      print('Socket.io reconnected');
       onConnected?.call();
+      if (_currentRoomId != null) {
+        joinRoom(_currentRoomId!);
+      }
     });
 
     _socket!.on('disconnect', (_) {
@@ -88,18 +142,31 @@ class SignalingService {
 
   /// Verifica che il socket sia connesso, altrimenti riconnette.
   /// Chiamato al resume dell'app dopo essere stata in background.
-  void ensureConnected(String peerId) {
+  void ensureConnected(String peerId, {required String username}) {
     if (_socket == null || _socket!.disconnected) {
       print('Socket disconnected during background, reconnecting...');
-      connect(peerId);
+      connect(peerId, username: username);
     }
   }
 
   void joinRoom(String roomId) {
+    _currentRoomId = roomId;
     _socket?.emit('join-room', {
       'roomId': roomId,
       'peerId': _peerId,
+      'username': _username,
     });
+  }
+
+  void leaveRoom() {
+    if (_currentRoomId != null) {
+      _socket?.emit('leave-room');
+      _currentRoomId = null;
+    }
+  }
+
+  void requestRoomList() {
+    _socket?.emit('list-rooms');
   }
 
   void sendOffer(String targetPeerId, Map<String, dynamic> offer) {
@@ -126,7 +193,12 @@ class SignalingService {
     });
   }
 
+  void sendMuteStatus(bool isMuted) {
+    _socket?.emit('mute-status', {'isMuted': isMuted});
+  }
+
   void disconnect() {
+    _currentRoomId = null;
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
