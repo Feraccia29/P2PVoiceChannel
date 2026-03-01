@@ -168,7 +168,8 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
         turnUsername: _turnUsername,
         turnCredential: _turnCredential,
       );
-      await _webrtcService.startLocalStream();
+      final inputDeviceId = await AudioDeviceService.getPreferredInputDeviceId();
+      await _webrtcService.startLocalStream(inputDeviceId: inputDeviceId);
       await _applyOutputDevicePreference();
       _webrtcReady = true;
 
@@ -300,7 +301,8 @@ class CallProvider with ChangeNotifier, WidgetsBindingObserver {
           turnUsername: _turnUsername,
           turnCredential: _turnCredential,
         );
-        await _webrtcService.startLocalStream();
+        final inputDeviceId = await AudioDeviceService.getPreferredInputDeviceId();
+        await _webrtcService.startLocalStream(inputDeviceId: inputDeviceId);
         await _applyOutputDevicePreference();
       } catch (e) {
         print('Error reinitializing after peer left: $e');

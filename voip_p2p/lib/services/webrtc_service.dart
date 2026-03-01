@@ -82,10 +82,16 @@ class WebRTCService {
     };
   }
 
-  Future<void> startLocalStream() async {
+  Future<void> startLocalStream({String? inputDeviceId}) async {
     try {
+      final constraints = Map<String, dynamic>.from(AppConstants.mediaConstraints);
+      if (inputDeviceId != null) {
+        final audioConstraints = Map<String, dynamic>.from(constraints['audio'] as Map);
+        audioConstraints['deviceId'] = inputDeviceId;
+        constraints['audio'] = audioConstraints;
+      }
       _localStream = await navigator.mediaDevices.getUserMedia(
-        AppConstants.mediaConstraints,
+        constraints,
       );
 
       _localStream!.getTracks().forEach((track) {
